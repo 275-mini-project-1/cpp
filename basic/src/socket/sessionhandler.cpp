@@ -11,6 +11,15 @@
 #include "socket/sessionhandler.hpp"
 #include "payload/basicbuilder.hpp"
 
+   bool optimize = true;
+   
+   int MAX_ACTIVE_SESSIONS = 100;
+   int DEFAULT_REFRESH_RATE = 1000; // 1 second
+   int MAX_REFRESH_RATE = 3000; // 3 seconds
+   int REFRESH_RATE_INC = 500; // 0.5 seconds
+   int REFRESH_RATE_DEC = 500; // 0.25 seconds
+   int MIN_REFRESH_RATE = 250; // 0.25 seconds
+
 
    void basic::Session::incr(unsigned int by) {
       if (by > 0) this->count += by;
@@ -24,12 +33,13 @@
       return *this;
    }
 
-  basic::SessionHandler::SessionHandler() {
+   basic::SessionHandler::SessionHandler() {
          this->good = true;
          this->refreshRate = 0;
    }
 
    void basic::SessionHandler::stop() {
+      std::cerr << "--> closing session" << std::endl;
       this->good = false;
       for (auto& sitr : this->sessions) {
          Session& session = sitr;
@@ -48,6 +58,7 @@
    }
 
    void basic::SessionHandler::addSession(int sessionSock) {
+      std::cerr << "--> client connected. adding session " << sessionSock << std::endl;
       this->sessions.emplace_back(std::move(Session(sessionSock,0)));
    }
 
@@ -73,7 +84,11 @@
    }
 
    /**
-    * 
+    * processes data from active sessions
+    * idle true if session handler is not processing any data
+    * manages active sessions
+    * reads data / handles errors
+    * updates session handler state
    */
    bool basic::SessionHandler::cycle() {
       bool idle = true;
@@ -110,10 +125,12 @@
             process(results);
             results.clear();
          } else if (n == -1) {
-            if (errno == EWOULDBLOCK) {} /*read timeout - okay*/
-            else if (errno == ECONNRESET) {
+            if (errno == EWOULDBLOCK) {
+               idle = true; // setting this to true slows down polling
+            } /*read timeout - okay*/
+            else if (errno == ECONNRESET || errno == ETIMEDOUT) {
                std::cerr << "--> a session was closed, [id: " 
-                           << session.fd << ", cnt: " << session.count 
+                           << session.fd << ", count: " << session.count 
                            << "]" << std::endl;
                
                // ref: https://en.wikipedia.org/wiki/Erase–remove_idiom
@@ -123,9 +140,26 @@
                                        return s.fd == xfd;}),this->sessions.end());
                idle = false;
                break;
+            } else {
+               std::stringstream err;
+               err << "error while reading from file descriptor, sock = " << session.fd 
+                   << ", err = " << errno << std::endl;
+               idle = false;
+               break;
             }
-         } else {
-            // no data
+         } else { // in this case, session closed gracefully
+            std::cerr << "--> session closed, [id: " 
+                        << session.fd << ", count: " << session.count 
+                        << "]" << std::endl;
+            
+            // ref: https://en.wikipedia.org/wiki/Erase–remove_idiom
+            auto xfd = session.fd;
+            this->sessions.erase(std::remove_if(this->sessions.begin(), 
+                                 this->sessions.end(), [&xfd](const Session& s) {
+                                    return s.fd == xfd;}),this->sessions.end());
+            idle = false;
+            break;
+            
          } 
       }
 
@@ -137,37 +171,57 @@
    */
    void basic::SessionHandler::process(const std::vector<std::string>& results) {
       basic::BasicBuilder b;
+      if (results.size() == 0) return;
+      if (sDebug > 0) std::cerr << "processing " << results.size() << " messages" << std::endl;
       for (auto s : results) {
          auto m = b.decode(s);
       
          // PLACEHOLDER: now do something with the message
          std::cerr << "M: [" << m.group() << "] " << m.name() << " - " 
                   << m.text() << std::endl;
+                  
          std::cerr.flush();
       }
    }
 
    /**
-    * 
+    * provided code is optimizing based on the number of sessions
+    * if the session handler is idle and we have a large number of sessions, then we should reduce polling
+    * if the session handler is idle and we have too few sessions, then we should increase polling
+    * if the session handler is not idle we can reset to default polling frequency
    */
    void basic::SessionHandler::optimizeAndWait(bool idle) {
 
-      // if (optimize) {
-      //    // todo add code to optimize processing
-      // }
-      
-      if (idle) {
-         // gradually slow down polling while no activity
-         if (this->refreshRate < 3000) this->refreshRate += 250;
-      
-         if (sDebug > 0) {
-            std::cerr << this->sessions.size() << " sessions, sleeping " 
-                      << this->refreshRate << " ms..." << std::endl;
+      if (optimize) {
+
+         int numSessions = this->sessions.size();
+
+         if (numSessions > MAX_ACTIVE_SESSIONS) {
+            if (this->refreshRate > MIN_REFRESH_RATE) this->refreshRate -= REFRESH_RATE_DEC;
+         } else if (numSessions < MAX_ACTIVE_SESSIONS) {
+            if (this->refreshRate < MAX_REFRESH_RATE) this->refreshRate += REFRESH_RATE_INC;
          }
+      } else {
+         // reset to default polling frequency
+         this->refreshRate = DEFAULT_REFRESH_RATE;
+      }
 
          std::this_thread::sleep_for(std::chrono::milliseconds(this->refreshRate));
-      } else 
-         this->refreshRate = 0;
+
+         // below code adjusts polling frequency
+         // if (idle) {
+         //    // gradually slow down polling while no activity
+         //    if (this->refreshRate < 3000) this->refreshRate += 250;
+         
+         //    if (sDebug > 0) {
+         //       std::cerr << this->sessions.size() << " sessions, sleeping " 
+         //                << this->refreshRate << " ms..." << std::endl;
+         //    }
+
+         //    std::this_thread::sleep_for(std::chrono::milliseconds(this->refreshRate));
+         // } else 
+         //    this->refreshRate = 0;
+      
    }
 
    /**

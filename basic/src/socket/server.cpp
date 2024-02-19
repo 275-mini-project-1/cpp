@@ -15,9 +15,14 @@ basic::BasicServer::BasicServer(std::string ipaddr, unsigned int port) {
       this->good = false;
       this->svr = -1; // 0 is valid
 
-      if (this->portN <= 1024)
+      if (this->portN <= 1024) {
          throw std::out_of_range("port must be greater than 1024");
-}
+      } else if (ipaddr == "") {
+         throw std::invalid_argument("ipaddr must be a valid ip address");
+      } else {
+         std::cout << "BasicServer created with ipaddr: " << ipaddr << ", port: " << port << std::endl;
+      }
+} 
 
 void basic::BasicServer::stop() {
    std::cerr << "--> BasicServer close()" << std::endl;
@@ -25,8 +30,10 @@ void basic::BasicServer::stop() {
    this->sessions.stop();
 
    if (this->svr > 0) {
+      std::cout << "closing server socket..." << std::endl; 
       ::close(this->svr);
       this->svr = -1;
+      std::cout << "server socket closed" << std::endl;
    }
 } 
 
@@ -35,6 +42,7 @@ void basic::BasicServer::start() {
    std::cerr << "connecting..." << std::endl;
    connect();
    sleep(2);
+   std::cerr << "connected" << std::endl;
 
    struct sockaddr_in addr;
    addr.sin_family = AF_INET;
@@ -44,7 +52,8 @@ void basic::BasicServer::start() {
 
    std::cerr << "waiting for connections..." << std::endl;
    while (this->good) {
-         // wait for clients to connect       
+         // wait for clients to connect      
+         // incoming is the file descriptor  
          auto incoming = ::accept(this->svr, (struct sockaddr*)&addr, &addrlen);
          if (incoming < 0) {
             std::stringstream err;
@@ -59,6 +68,12 @@ void basic::BasicServer::start() {
          tv.tv_usec = 0;
          setsockopt(incoming, SOL_SOCKET,  SO_REUSEADDR | SO_REUSEPORT | SO_RCVTIMEO, (const char*)&tv, sizeof(tv));
          */
+
+        // enables both SO_REUSEADDR and SO_REUSEPORT
+        // SO_REUSEADDR --> allows socket to bind to an address that is already in use
+        // SO_REUSEPORT --> allows multiple sockets to bind to the same address and port combination
+
+        // https://www.baeldung.com/linux/socket-options-difference
 
          int opt = 2;
          setsockopt(incoming, SOL_SOCKET,  SO_REUSEADDR | SO_REUSEPORT, &opt, sizeof(opt));
@@ -86,6 +101,8 @@ void basic::BasicServer::connect() {
    }
 
    // opt to try: SO_KEEPALIVE, SO_DEBUG
+   // SO_KEEPALIVE --> sends keepalive messages on the connection
+   // SO_DEBUG --> enables debugging information
    int opt = 1;
    auto stat = ::setsockopt(this->svr, SOL_SOCKET, SO_REUSEADDR, 
                               &opt, sizeof(opt));
