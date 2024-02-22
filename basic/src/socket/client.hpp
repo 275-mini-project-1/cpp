@@ -34,6 +34,7 @@ class BasicClient {
       void join(std::string group);
 
       void connect() noexcept(false);
+      void receiveAck() noexcept(false);
 };
 
 } // basic

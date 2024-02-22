@@ -7,11 +7,12 @@
 #include <string>
 #include <cstring>
 #include <algorithm>
+#include <string.h>
 
 #include "socket/sessionhandler.hpp"
 #include "payload/basicbuilder.hpp"
 
-   bool optimize = true;
+   bool optimize = false;
    
    int MAX_ACTIVE_SESSIONS = 100;
    int DEFAULT_REFRESH_RATE = 1000; // 1 second
@@ -87,7 +88,7 @@
     * processes data from active sessions
     * idle true if session handler is not processing any data
     * manages active sessions
-    * reads data / handles errors
+    * reads data / sends ack to client / handles errors
     * updates session handler state
    */
    bool basic::SessionHandler::cycle() {
@@ -117,12 +118,12 @@
             std::cerr << "---> session " << session.fd << " got n = " 
                         << n << ", errno = " << errno << std::endl;
          }
-         
+
          if (n > 0) {
             idle = false;
             auto results = splitter(session,raw,n);
             session.incr(results.size());
-            process(results);
+            process(results, session);
             results.clear();
          } else if (n == -1) {
             if (errno == EWOULDBLOCK) {
@@ -169,7 +170,7 @@
    /**
     * 
    */
-   void basic::SessionHandler::process(const std::vector<std::string>& results) {
+   void basic::SessionHandler::process(const std::vector<std::string>& results, Session &session) {
       basic::BasicBuilder b;
       if (results.size() == 0) return;
       if (sDebug > 0) std::cerr << "processing " << results.size() << " messages" << std::endl;
@@ -179,6 +180,10 @@
          // PLACEHOLDER: now do something with the message
          std::cerr << "M: [" << m.group() << "] " << m.name() << " - " 
                   << m.text() << std::endl;
+
+         // send ack to client
+         std::string ack = "ack";
+         sendAck(session.fd, ack);
                   
          std::cerr.flush();
       }
@@ -222,6 +227,15 @@
          // } else 
          //    this->refreshRate = 0;
       
+   }
+   // Session handler send acknowledgement 
+   void basic::SessionHandler::sendAck(int clt, std::string msg) noexcept(false) {
+      auto n = ::write(clt, msg.c_str(), msg.length());
+      if (n < 0) {
+         std::stringstream err;
+         err << "error sending ack to client, errno = " << strerror(errno) << std::endl;
+         throw std::runtime_error(err.str());
+      }
    }
 
    /**
