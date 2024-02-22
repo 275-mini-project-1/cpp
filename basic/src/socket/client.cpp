@@ -16,6 +16,8 @@ basic::BasicClient::BasicClient(std::string name, std::string ipaddr, unsigned i
       this->portN = port;
       this->good = false;
       this->clt = -1;
+      this->totalClientRTT = 0;
+      this->totalClientAcks = 0;
 
       if (this->portN <= 1024)
          throw std::out_of_range("port must be greater than 1024");
@@ -49,6 +51,11 @@ void basic::BasicClient::sendMessage(std::string m) {
    
    std::cerr << "sending: " << payload << ", size: " << plen << std::endl;
    auto n = ::write(this->clt, payload.c_str(), plen);
+   if (n < 0)
+   {
+      std::cerr << "--> send() error, errno = " << strerror(errno) << std::endl;
+      return;
+   }
    //auto n = ::send(this->clt, payload.c_str(), plen);
 
    char buffer[1024] = {0};
@@ -62,6 +69,8 @@ void basic::BasicClient::sendMessage(std::string m) {
    // Stop timing
    auto end = std::chrono::high_resolution_clock::now();
    std::chrono::duration<double, std::milli> rtt = end - start;
+   this->totalClientRTT += rtt.count();
+   this->totalClientAcks++;
 
    std::cerr << "Acknowledgment received: " << std::string(buffer, n) << std::endl;
    std::cerr << "RTT: " << rtt.count() << " ms" << std::endl;

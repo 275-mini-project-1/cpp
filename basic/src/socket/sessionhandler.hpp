@@ -33,7 +33,7 @@ class Session {
 class SessionHandler {
     private:
         // compiler optimizer (-On) removes/leaves debug code
-        static const int sDebug = 1;  // 0,1,2
+        static const int sDebug = 0;  // 0,1,2
 
         bool good;
         unsigned int refreshRate;

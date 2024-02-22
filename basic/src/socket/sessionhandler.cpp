@@ -175,7 +175,10 @@
       if (results.size() == 0) return;
       if (sDebug > 0) std::cerr << "processing " << results.size() << " messages" << std::endl;
       for (auto s : results) {
+         
+         auto startTime = std::chrono::system_clock::now();
          auto m = b.decode(s);
+         
       
          // PLACEHOLDER: now do something with the message
          std::cerr << "M: [" << m.group() << "] " << m.name() << " - " 
@@ -183,11 +186,14 @@
 
          // send ack to client
          std::string ack = "ack";
+
+         // auto endTime = std::chrono::system_clock::now();
          sendAck(session.fd, ack);
+
                   
          std::cerr.flush();
       }
-   }
+}
 
    /**
     * provided code is optimizing based on the number of sessions
