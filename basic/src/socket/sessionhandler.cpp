@@ -205,33 +205,33 @@
 
       if (optimize) {
 
-         int numSessions = this->sessions.size();
+      //    int numSessions = this->sessions.size();
 
-         if (numSessions > MAX_ACTIVE_SESSIONS) {
-            if (this->refreshRate > MIN_REFRESH_RATE) this->refreshRate -= REFRESH_RATE_DEC;
-         } else if (numSessions < MAX_ACTIVE_SESSIONS) {
-            if (this->refreshRate < MAX_REFRESH_RATE) this->refreshRate += REFRESH_RATE_INC;
-         }
-      } else {
-         // reset to default polling frequency
-         this->refreshRate = 0;
+      //    if (numSessions > MAX_ACTIVE_SESSIONS) {
+      //       if (this->refreshRate > MIN_REFRESH_RATE) this->refreshRate -= REFRESH_RATE_DEC;
+      //    } else if (numSessions < MAX_ACTIVE_SESSIONS) {
+      //       if (this->refreshRate < MAX_REFRESH_RATE) this->refreshRate += REFRESH_RATE_INC;
+      //    }
+      // } else {
+      //    // reset to default polling frequency
+      //    this->refreshRate = 0;
       }
 
          // std::this_thread::sleep_for(std::chrono::milliseconds(this->refreshRate));
 
          // below code adjusts polling frequency
-         // if (idle) {
-         //    // gradually slow down polling while no activity
-         //    if (this->refreshRate < 3000) this->refreshRate += 250;
+         if (idle) {
+            // gradually slow down polling while no activity
+            if (this->refreshRate < 3000) this->refreshRate += 250;
          
-         //    if (sDebug > 0) {
-         //       std::cerr << this->sessions.size() << " sessions, sleeping " 
-         //                << this->refreshRate << " ms..." << std::endl;
-         //    }
+            if (sDebug > 0) {
+               std::cerr << this->sessions.size() << " sessions, sleeping " 
+                        << this->refreshRate << " ms..." << std::endl;
+            }
 
-         //    std::this_thread::sleep_for(std::chrono::milliseconds(this->refreshRate));
-         // } else 
-         //    this->refreshRate = 0;
+            // std::this_thread::sleep_for(std::chrono::milliseconds(this->refreshRate));
+         } else 
+            this->refreshRate = 0;
       
    }
    // Session handler send acknowledgement 
