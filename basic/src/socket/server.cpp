@@ -62,12 +62,12 @@ void basic::BasicServer::start() {
          }
 
          // configure read timeout on listening for new clients
-         /*
-         struct timeval tv;
-         tv.tv_sec = 1;
-         tv.tv_usec = 0;
-         setsockopt(incoming, SOL_SOCKET,  SO_REUSEADDR | SO_REUSEPORT | SO_RCVTIMEO, (const char*)&tv, sizeof(tv));
-         */
+         
+         // struct timeval tv;
+         // tv.tv_sec = 1;
+         // tv.tv_usec = 0;
+         // setsockopt(incoming, SOL_SOCKET,  SO_REUSEADDR | SO_REUSEPORT | SO_RCVTIMEO, (const char*)&tv, sizeof(tv));
+         
 
         // enables both SO_REUSEADDR and SO_REUSEPORT
         // SO_REUSEADDR --> allows socket to bind to an address that is already in use

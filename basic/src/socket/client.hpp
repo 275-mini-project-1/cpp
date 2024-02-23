@@ -18,6 +18,8 @@ class BasicClient {
       unsigned int portN;
       bool good;
       int clt;
+      float totalClientRTT;
+      int totalClientAcks;
 
    public: 
       BasicClient() : name("anonymous"), group("public"), ipaddr("127.0.0.1"), 
@@ -34,6 +36,8 @@ class BasicClient {
       void join(std::string group);
 
       void connect() noexcept(false);
+      int getTotalClientAcks() const {return this->totalClientAcks;}
+      float getTotalClientRTT() const {return this->totalClientRTT;}
 };
 
 } // basic

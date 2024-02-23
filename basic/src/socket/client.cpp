@@ -16,6 +16,8 @@ basic::BasicClient::BasicClient(std::string name, std::string ipaddr, unsigned i
       this->portN = port;
       this->good = false;
       this->clt = -1;
+      this->totalClientRTT = 0;
+      this->totalClientAcks = 0;
 
       if (this->portN <= 1024)
          throw std::out_of_range("port must be greater than 1024");
@@ -43,25 +45,50 @@ void basic::BasicClient::sendMessage(std::string m) {
    auto payload = bldr.encode(msg); 
    auto plen = payload.length();
 
-   while (this->good) {
-      auto n = ::write(this->clt, payload.c_str(), plen);
-      //auto n = ::send(this->clt, payload.c_str(), plen);
-      
-      if (n == -1) {
-         std::cerr << "--> send() error for " << m << ", n = " << n << ", errno = " << errno << std::endl;
-      } else if ( errno == ETIMEDOUT) { 
-         // @todo send portion not sent!
-         continue;
-      } else if (payload.length() != (std::size_t)n) {
-         // @todo hmmmm, houston we may have a problem
-         std::stringstream err;
-         err << "failed to fully send(), err = " << errno << std::endl;
-         throw std::runtime_error(err.str());
-      } else 
-         std::cerr << "sent: " << payload << ", size: " << plen << ", errno: " << errno << std::endl;
+   // while (this->good) {
+
+   auto start = std::chrono::high_resolution_clock::now();
    
-      break;
+   std::cerr << "sending: " << payload << ", size: " << plen << std::endl;
+   auto n = ::write(this->clt, payload.c_str(), plen);
+   if (n < 0)
+   {
+      std::cerr << "--> send() error, errno = " << strerror(errno) << std::endl;
+      return;
    }
+   //auto n = ::send(this->clt, payload.c_str(), plen);
+
+   char buffer[1024] = {0};
+   n = ::recv(this->clt, buffer, sizeof(buffer), 0);
+   if (n < 0)
+   {
+      std::cerr << "--> recv() error, errno = " << strerror(errno) << std::endl;
+      return;
+   }
+
+   // Stop timing
+   auto end = std::chrono::high_resolution_clock::now();
+   std::chrono::duration<double, std::milli> rtt = end - start;
+   this->totalClientRTT += rtt.count();
+   this->totalClientAcks++;
+
+   std::cerr << "Acknowledgment received: " << std::string(buffer, n) << std::endl;
+   std::cerr << "RTT: " << rtt.count() << " ms" << std::endl;
+   //    if (n == -1) {
+   //       std::cerr << "--> send() error for " << m << ", n = " << n << ", errno = " << errno << std::endl;
+   //    } else if ( errno == ETIMEDOUT) { 
+   //       // @todo send portion not sent!
+   //       continue;
+   //    } else if (payload.length() != (std::size_t)n) {
+   //       // @todo hmmmm, houston we may have a problem
+   //       std::stringstream err;
+   //       err << "failed to fully send(), err = " << errno << std::endl;
+   //       throw std::runtime_error(err.str());
+   //    } else 
+   //       std::cerr << "sent: " << payload << ", size: " << plen << ", errno: " << errno << std::endl;
+   
+   //    break;
+   // }
 }
 
 void basic::BasicClient::connect() {

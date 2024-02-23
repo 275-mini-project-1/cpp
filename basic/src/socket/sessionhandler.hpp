@@ -33,7 +33,7 @@ class Session {
 class SessionHandler {
     private:
         // compiler optimizer (-On) removes/leaves debug code
-        static const int sDebug = 1;  // 0,1,2
+        static const int sDebug = 0;  // 0,1,2
 
         bool good;
         unsigned int refreshRate;
@@ -48,7 +48,7 @@ class SessionHandler {
         void start();
         void stop();
         void addSession(int sessionSock);
-        virtual void process(const std::vector<std::string>& results);
+        virtual void process(const std::vector<std::string>& results, Session& s);
         
         // if we use a handler per connection like the other lab examples in
         // python and java, we will create a problem with the resizing. Reason: 
@@ -64,6 +64,8 @@ class SessionHandler {
         bool cycle();
         std::vector<std::string> splitter(Session& s, const char* raw, int len);
         void optimizeAndWait(bool idle);
+        void sendAck(int clt, std::string msg) noexcept(false);
+
 };
 
 } // basic

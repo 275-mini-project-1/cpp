@@ -7,14 +7,15 @@
 #include <string>
 #include <cstring>
 #include <algorithm>
+#include <string.h>
 
 #include "socket/sessionhandler.hpp"
 #include "payload/basicbuilder.hpp"
 
-   bool optimize = true;
+   bool optimize = false;
    
    int MAX_ACTIVE_SESSIONS = 100;
-   int DEFAULT_REFRESH_RATE = 1000; // 1 second
+   // int DEFAULT_REFRESH_RATE = 1000; // 1 second
    int MAX_REFRESH_RATE = 3000; // 3 seconds
    int REFRESH_RATE_INC = 500; // 0.5 seconds
    int REFRESH_RATE_DEC = 500; // 0.25 seconds
@@ -87,7 +88,7 @@
     * processes data from active sessions
     * idle true if session handler is not processing any data
     * manages active sessions
-    * reads data / handles errors
+    * reads data / sends ack to client / handles errors
     * updates session handler state
    */
    bool basic::SessionHandler::cycle() {
@@ -117,12 +118,12 @@
             std::cerr << "---> session " << session.fd << " got n = " 
                         << n << ", errno = " << errno << std::endl;
          }
-         
+
          if (n > 0) {
             idle = false;
             auto results = splitter(session,raw,n);
             session.incr(results.size());
-            process(results);
+            process(results, session);
             results.clear();
          } else if (n == -1) {
             if (errno == EWOULDBLOCK) {
@@ -169,20 +170,30 @@
    /**
     * 
    */
-   void basic::SessionHandler::process(const std::vector<std::string>& results) {
+   void basic::SessionHandler::process(const std::vector<std::string>& results, Session &session) {
       basic::BasicBuilder b;
       if (results.size() == 0) return;
       if (sDebug > 0) std::cerr << "processing " << results.size() << " messages" << std::endl;
       for (auto s : results) {
+         
+         auto startTime = std::chrono::system_clock::now();
          auto m = b.decode(s);
+         
       
          // PLACEHOLDER: now do something with the message
          std::cerr << "M: [" << m.group() << "] " << m.name() << " - " 
                   << m.text() << std::endl;
+
+         // send ack to client
+         std::string ack = "ack";
+
+         // auto endTime = std::chrono::system_clock::now();
+         sendAck(session.fd, ack);
+
                   
          std::cerr.flush();
       }
-   }
+}
 
    /**
     * provided code is optimizing based on the number of sessions
@@ -194,34 +205,43 @@
 
       if (optimize) {
 
-         int numSessions = this->sessions.size();
+      //    int numSessions = this->sessions.size();
 
-         if (numSessions > MAX_ACTIVE_SESSIONS) {
-            if (this->refreshRate > MIN_REFRESH_RATE) this->refreshRate -= REFRESH_RATE_DEC;
-         } else if (numSessions < MAX_ACTIVE_SESSIONS) {
-            if (this->refreshRate < MAX_REFRESH_RATE) this->refreshRate += REFRESH_RATE_INC;
-         }
-      } else {
-         // reset to default polling frequency
-         this->refreshRate = DEFAULT_REFRESH_RATE;
+      //    if (numSessions > MAX_ACTIVE_SESSIONS) {
+      //       if (this->refreshRate > MIN_REFRESH_RATE) this->refreshRate -= REFRESH_RATE_DEC;
+      //    } else if (numSessions < MAX_ACTIVE_SESSIONS) {
+      //       if (this->refreshRate < MAX_REFRESH_RATE) this->refreshRate += REFRESH_RATE_INC;
+      //    }
+      // } else {
+      //    // reset to default polling frequency
+      //    this->refreshRate = 0;
       }
 
-         std::this_thread::sleep_for(std::chrono::milliseconds(this->refreshRate));
+         // std::this_thread::sleep_for(std::chrono::milliseconds(this->refreshRate));
 
          // below code adjusts polling frequency
-         // if (idle) {
-         //    // gradually slow down polling while no activity
-         //    if (this->refreshRate < 3000) this->refreshRate += 250;
+         if (idle) {
+            // gradually slow down polling while no activity
+            if (this->refreshRate < 3000) this->refreshRate += 250;
          
-         //    if (sDebug > 0) {
-         //       std::cerr << this->sessions.size() << " sessions, sleeping " 
-         //                << this->refreshRate << " ms..." << std::endl;
-         //    }
+            if (sDebug > 0) {
+               std::cerr << this->sessions.size() << " sessions, sleeping " 
+                        << this->refreshRate << " ms..." << std::endl;
+            }
 
-         //    std::this_thread::sleep_for(std::chrono::milliseconds(this->refreshRate));
-         // } else 
-         //    this->refreshRate = 0;
+            // std::this_thread::sleep_for(std::chrono::milliseconds(this->refreshRate));
+         } else 
+            this->refreshRate = 0;
       
+   }
+   // Session handler send acknowledgement 
+   void basic::SessionHandler::sendAck(int clt, std::string msg) noexcept(false) {
+      auto n = ::write(clt, msg.c_str(), msg.length());
+      if (n < 0) {
+         std::stringstream err;
+         err << "error sending ack to client, errno = " << strerror(errno) << std::endl;
+         throw std::runtime_error(err.str());
+      }
    }
 
    /**
