@@ -18,15 +18,14 @@
 // calculate and display performance metrics
 int main(int argc, char **argv) {
 
-    int NUM_CLIENTS = 10;
-    int NUM_MSGS = 5;
+    int NUM_CLIENTS = 1;
+    int NUM_MSGS = 50;
 
     std::atomic<int> totalTestAcks = 0;
-    std::atomic<float> totalTestAvgRTT = 0;
     std::atomic<float> totalTestRTT = 0;
 
     for (int i=0; i<NUM_CLIENTS; i++) {
-        std::thread t([&totalTestAcks, &totalTestAvgRTT, &totalTestRTT, &NUM_MSGS]() {
+        std::thread t([&totalTestAcks, &totalTestRTT, &NUM_MSGS]() {
             basic::BasicClient cl;
             cl.connect();
             for (int i=0; i<NUM_MSGS; i++) {
@@ -41,8 +40,8 @@ int main(int argc, char **argv) {
             // https://en.cppreference.com/w/cpp/atomic/atomic/compare_exchange
 
             // add average of client RTT's to total RTT
-            float oldRTT = totalTestAvgRTT.load();
-            while (!totalTestAvgRTT.compare_exchange_weak(oldRTT, oldRTT + (cl.getTotalClientRTT() / NUM_MSGS)));
+            float oldRTT = totalTestRTT.load();
+            while (!totalTestRTT.compare_exchange_weak(oldRTT, oldRTT + (cl.getTotalClientRTT() / NUM_MSGS)));
             while (!totalTestRTT.compare_exchange_weak(oldRTT, oldRTT + cl.getTotalClientRTT()));
         });
         t.join();

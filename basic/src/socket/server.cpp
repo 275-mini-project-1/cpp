@@ -62,12 +62,12 @@ void basic::BasicServer::start() {
          }
 
          // configure read timeout on listening for new clients
-         /*
+         
          struct timeval tv;
          tv.tv_sec = 1;
          tv.tv_usec = 0;
          setsockopt(incoming, SOL_SOCKET,  SO_REUSEADDR | SO_REUSEPORT | SO_RCVTIMEO, (const char*)&tv, sizeof(tv));
-         */
+         
 
         // enables both SO_REUSEADDR and SO_REUSEPORT
         // SO_REUSEADDR --> allows socket to bind to an address that is already in use
@@ -75,8 +75,8 @@ void basic::BasicServer::start() {
 
         // https://www.baeldung.com/linux/socket-options-difference
 
-         int opt = 2;
-         setsockopt(incoming, SOL_SOCKET,  SO_REUSEADDR | SO_REUSEPORT, &opt, sizeof(opt));
+         // int opt = 2;
+         // setsockopt(incoming, SOL_SOCKET,  SO_REUSEADDR | SO_REUSEPORT, &opt, sizeof(opt));
 
          // all client connections must be nonblocking
          fcntl(incoming, F_SETFL, O_NONBLOCK);

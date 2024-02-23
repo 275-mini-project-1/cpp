@@ -15,7 +15,7 @@
    bool optimize = false;
    
    int MAX_ACTIVE_SESSIONS = 100;
-   int DEFAULT_REFRESH_RATE = 1000; // 1 second
+   // int DEFAULT_REFRESH_RATE = 1000; // 1 second
    int MAX_REFRESH_RATE = 3000; // 3 seconds
    int REFRESH_RATE_INC = 500; // 0.5 seconds
    int REFRESH_RATE_DEC = 500; // 0.25 seconds
@@ -214,10 +214,10 @@
          }
       } else {
          // reset to default polling frequency
-         this->refreshRate = DEFAULT_REFRESH_RATE;
+         this->refreshRate = 0;
       }
 
-         std::this_thread::sleep_for(std::chrono::milliseconds(this->refreshRate));
+         // std::this_thread::sleep_for(std::chrono::milliseconds(this->refreshRate));
 
          // below code adjusts polling frequency
          // if (idle) {
